@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plagiarism Checker</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Plagiarism Checker</h1>
+        <form method="POST" action="/check">
+            <textarea name="text_to_check" placeholder="Enter the text to check for plagiarism..." rows="10" cols="40"></textarea>
+            <br>
+            <input type="submit" value="Check Plagiarism">
+        </form>
+        <div class="result">
+            {% if plagiarism_results %}
+                <h2>Plagiarism Results</h2>
+                <ul>
+                    {% for sentence, data in plagiarism_results.items() %}
+                        <li>
+                            <strong>Sentence:</strong> {{ sentence }}<br>
+                            <strong>Plagiarism Score:</strong> {{ data['score'] }}%<br>
+                            <strong>Source:</strong> {{ data['url'] }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
