@@ -38,7 +38,7 @@ To get started with this project, follow these steps:
 
    ```bash
    python -m venv venv
-   source venv/bin/activate
+   venv/scripts/activate
    ```
 
 3. **Install the required Python packages using `pip`:**
@@ -55,9 +55,7 @@ To get started with this project, follow these steps:
    Make sure you have Python installed. You can install packages using pip:
 
    ```sh
-   pip install Flask
-   pip install google
-   pip install trafilatura
+   pip install Flask requests beautifulsoup4 trafilatura
    ```
 
 4. **Run the Application:**
