@@ -10,7 +10,6 @@ def split_in_sentences(text):
 
 
 def generate_shingles(text, k):
-    
     shingles = set()
     text = text.lower().split()  # Convert text to lowercase and split into words
     for i in range(len(text) - k + 1):
@@ -18,11 +17,9 @@ def generate_shingles(text, k):
         shingles.add(shingle)
     return shingles
 
+
 def similarity(set1, set2):
-   
     intersection = len(set1.intersection(set2))
-    # union = len(set1.union(set2))
-    # return intersection / union if union != 0 else 0.0
     return  intersection / len(set1)
 def similarity_score(input_text, collected_text, k=3):
     
@@ -32,6 +29,30 @@ def similarity_score(input_text, collected_text, k=3):
     return similarity_score
 
 
+def google_search(query):
+    links=[]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0'}
+
+    # Perform a Google search
+    search_url = f'https://www.google.com/search?q="{query}"'
+    response = requests.get(search_url, headers=headers)
+
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Extract and print search results
+        search_results = soup.find_all('h3')
+        for idx, result in enumerate(search_results, start=1):
+            link = result.find_parent('a')
+            if link:
+                link_text = link.get('href')
+                if link_text and link_text.startswith('http'):
+                    links.append(link_text)         
+    else:
+        print("Failed to perform the Google search.")
+    return links #list of links
+
+
 def get_urls(sentences):
     
     sources={}
@@ -39,18 +60,19 @@ def get_urls(sentences):
     last_common_urls = []
     for sentence in sentences:
         
-        serp_urls=[]
-        try:
-            for i in search(f'"{sentence}"', tld="com", lang='en', num=5, stop=None, pause=2):
-                if len(serp_urls)<5:
-                    serp_urls.append(i)
-                else:
-                    break
-        except Exception as e:
-            print(e, '\nNo internet connection')
-            #return "No internet connection"
-            break
-
+        # serp_urls=[]
+        # try:
+        #     for i in search(f'"{sentence}"', lang='en'):
+        #         if len(serp_urls)<5:
+        #             serp_urls.append(i)
+        #         else:
+        #             break
+        # except Exception as e:
+        #     print(e, '\nNo internet connection')
+        #     #return "No internet connection"
+        #     break
+        serp_urls=google_search(sentences)
+        # print(serp_urls)
 
         if last_common_urls:
             last_key=list(sources)[-1]
@@ -99,10 +121,16 @@ def get_scores(sources):
     return results
 
 
+from datetime import datetime
+
 def plagiarism_checker(input_text):
     sentences=split_in_sentences(input_text)
+
+    print("Time =", datetime.now().strftime("%H:%M:%S"))
     sources=get_urls(sentences)
+    print("getting urls Time =", datetime.now().strftime("%H:%M:%S"))
     result=get_scores(sources)
+    print("scores Time =", datetime.now().strftime("%H:%M:%S"))
     return result
 
 
@@ -131,18 +159,4 @@ if __name__ == "__main__":
     print("Working...")
     final_output=get_raw_result(input_text)
     print(final_output)
-    '''try:
-        result =plagiarism_checker(input_text)
-    except Exception as e:
-        print("Error", e)
 
-    all_scores=[]
-    for key, value in result.items():
-        print(f'Sentence: {key} \nSource: {value["url"]} \nText Maches: {value["score"]}%')
-        print("-"*100)
-        all_scores.append(value['score'])
-
-    total_score=sum(all_scores)/len(all_scores)
-    if total_score:
-        print(f'Unique: {100-total_score}%   &   Plagiarism: {total_score}%')
-    '''
