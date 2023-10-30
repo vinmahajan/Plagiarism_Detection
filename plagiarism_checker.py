@@ -5,7 +5,7 @@ import trafilatura
 
 
 def split_in_sentences(text):
-    sentences=[x.strip() for x in text.strip().split(". ")]
+    sentences=[x.strip() for x in text.strip().replace('\n', '').split(". ")]
     return sentences
 
 
@@ -20,7 +20,7 @@ def generate_shingles(text, k):
 
 def similarity(set1, set2):
     intersection = len(set1.intersection(set2))
-    return  intersection / len(set1)
+    return  (intersection / len(set1))*100
 def similarity_score(input_text, collected_text, k=3):
     
     shingles1 = generate_shingles(input_text, k)
@@ -90,7 +90,6 @@ def get_urls(sentences):
         else:
             sources[sentence] = serp_urls
             last_common_urls = serp_urls
-
     return sources
 
 
@@ -112,11 +111,10 @@ def get_scores(sources):
             scor[url]=result_score
         
         if value:
-            final_url=max(scor)
+            final_url=max(scor, key=scor.get)
             final_score=scor[final_url]
-            if final_score > 0.5:
-                results[key]={"url": final_url, "score": round(final_score*100)}
-
+            if final_score > 50:
+                results[key]={"url": final_url, "score": round(final_score)}
 
     return results
 
@@ -131,6 +129,7 @@ def plagiarism_checker(input_text):
     print("getting urls Time =", datetime.now().strftime("%H:%M:%S"))
     result=get_scores(sources)
     print("scores Time =", datetime.now().strftime("%H:%M:%S"))
+    # print(result)
     return result
 
 
