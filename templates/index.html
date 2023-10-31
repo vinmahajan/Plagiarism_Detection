@@ -12,6 +12,10 @@
             <br>
             <input type="submit" value="Check Plagiarism">
         </form>
+
+        <div class="loader" id="loader"></div>
+        
+
         <div class="result">
             {% if plagiarism_results %}
                 <h2>Plagiarism Results</h2>
@@ -27,5 +31,12 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function() {
+            document.getElementById('loader').style.display = 'block';
+        });
+    </script>
+    
 </body>
 </html>

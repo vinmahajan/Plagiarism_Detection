@@ -33,7 +33,85 @@ input[type="submit"] {
     cursor: pointer;
 }
 
-.result {
+/* .result {
     margin-top: 20px;
     font-weight: bold;
+} */
+
+.result {
+    margin-top: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 20px;
+    background-color: #f9f9f9;
+}
+
+.result h2 {
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.result ul {
+    list-style: none;
+    padding: 0;
+}
+
+.result li {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin: 10px 0;
+    padding: 10px;
+}
+
+.result li strong {
+    font-weight: bold;
+}
+
+.result li strong::after {
+    content: ':';
+    margin-right: 4px;
+}
+
+.result li strong:after {
+    display: inline-block;
+}
+
+.result li strong {
+    font-weight: bold;
+    color: #007BFF;
+}
+
+.result li strong::after {
+    content: ':';
+    margin-right: 4px;
+}
+
+.result li strong:after {
+    display: inline-block;
+}
+
+.result li strong {
+    font-weight: bold;
+    color: #007BFF;
+}
+
+
+
+.loader {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid #007BFF;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 2s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
