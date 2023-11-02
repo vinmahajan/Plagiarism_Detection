@@ -1,8 +1,20 @@
 import requests
 from bs4 import BeautifulSoup
-# from googlesearch import search
+from googlesearch import search
 import trafilatura
+import random
 
+def get_useragent():
+    _useragent_list = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.62',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/111.0'
+    ]
+    return random.choice(_useragent_list)
 
 def split_in_sentences(text):
     sentences=[x.strip() for x in text.strip().replace('\n', '').split(". ")]
@@ -29,13 +41,28 @@ def similarity_score(input_text, collected_text, k=3):
     return similarity_score
 
 
+def get_content(url):
+    for i in range(3):
+        download= trafilatura.fetch_url(url)
+        content=trafilatura.extract(download, include_comments=False, include_tables=False)
+        if content:
+            return content
+        
+        elif i==2 and content is None:
+            return ''
+        
+
 def google_search(query):
     links=[]
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0'}
 
     # Perform a Google search
-    search_url = f'https://www.google.com/search?q="{query}"'
-    response = requests.get(search_url, headers=headers)
+    response = requests.get(
+                        url="https://www.google.com/search",
+                        headers={"User-Agent": get_useragent()},
+                        params={"q": f'"{query}"',
+                                "num": 5,  # Prevents multiple requests
+                                "hl": 'en'})
 
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -53,70 +80,42 @@ def google_search(query):
     return links #list of links
 
 
-def get_urls(sentences):
+def get_results(sentences):
     
     sources={}
 
-    last_common_urls = []
     for sentence in sentences:
-        
-        # serp_urls=[]
-        # try:
-        #     for i in search(f'"{sentence}"', lang='en'):
-        #         if len(serp_urls)<5:
-        #             serp_urls.append(i)
-        #         else:
-        #             break
-        # except Exception as e:
-        #     print(e, '\nNo internet connection')
-        #     #return "No internet connection"
-        #     break
-        serp_urls=google_search(sentences)
-        # print(serp_urls)
 
-        if last_common_urls:
-            last_key=list(sources)[-1]
-            common_urls=list(set(serp_urls).intersection(last_common_urls))
+        serp_urls=google_search(sentence)
+        # print(sentence)
+        temp={}
+        for url in serp_urls:
+            content=get_content(url)
+            sentence_score = similarity_score(sentence, content)
+            temp[url] = int(sentence_score)
+        # print (temp)
+        max_score_url=max(temp, key=temp.get)
+        max_score=temp[max_score_url]
 
-            if common_urls:
-                combined_sentence = list(sources.keys())[-1] + ". " + sentence
-                sources[combined_sentence] = common_urls
-                last_common_urls = common_urls
-                del sources[last_key]
+        current_score={'url':max_score_url, 'score':max_score}
             
+        if sources:
+            last_sentence=list(sources.keys())[-1]
+            last_url=sources[last_sentence]['url']
+            last_url_score=sources[last_sentence]['score']
+            if last_url==max_score_url:
+                combined_sentence = last_sentence + ". " + sentence
+                sources[combined_sentence] = {'url':max_score_url, 'score':int((max_score+last_url_score)/2)} #(current_score['score']+last_url_score)/2
+                
+                del sources[last_sentence]
+
             else:
-                sources[sentence] = serp_urls
-                last_common_urls = serp_urls
+                sources[sentence] = current_score
         else:
-            sources[sentence] = serp_urls
-            last_common_urls = serp_urls
+            sources[sentence] = current_score
+    
     return sources
 
-
-def get_scores(sources):
-    results={}
-    for key, value in sources.items():
-        
-        #google search and get urls
-        scor={}
-        for url in value:
-            download= trafilatura.fetch_url(url)
-            content=trafilatura.extract(download, include_comments=False, include_tables=False)
-            if content:
-                result_score = similarity_score(key, content)
-                
-            else:
-                result_score=0
-                        
-            scor[url]=result_score
-        
-        if value:
-            final_url=max(scor, key=scor.get)
-            final_score=scor[final_url]
-            if final_score > 50:
-                results[key]={"url": final_url, "score": round(final_score)}
-
-    return results
 
 
 from datetime import datetime
@@ -125,9 +124,7 @@ def plagiarism_checker(input_text):
     sentences=split_in_sentences(input_text)
 
     print("Time =", datetime.now().strftime("%H:%M:%S"))
-    sources=get_urls(sentences)
-    print("getting urls Time =", datetime.now().strftime("%H:%M:%S"))
-    result=get_scores(sources)
+    result=get_results(sentences)
     print("scores Time =", datetime.now().strftime("%H:%M:%S"))
     # print(result)
     return result
@@ -140,12 +137,12 @@ def get_raw_result(input_text):
         result =plagiarism_checker(str(input_text))
         all_scores=[]
         for key, value in result.items():
-            text+=f'\n{"-"*100}\nSentence: {key} \nSource: {value["url"]} \nText Maches: {value["score"]}%'
+            text+=f'\n{"-"}\nSentence: {key} \nSource: {value["url"]} \nText Maches: {value["score"]}%'
             all_scores.append(value['score'])
         if all_scores:
             total_score=sum(all_scores)/len(all_scores)
         #if total_score:
-            text+=(f'\n\nUnique: {100-total_score}%   &   Plagiarism: {total_score}%')
+            text+=(f'\n\nUnique: {int(100-total_score)}%   &   Plagiarism: {int(total_score)}%')
     except Exception as e:
         text=f'Error:{e}'
 
