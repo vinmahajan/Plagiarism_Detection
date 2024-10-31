@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import trafilatura
 import random
+from urllib.parse import urlparse
+import re
 
 def get_useragent():
     _useragent_list = [
@@ -15,9 +17,29 @@ def get_useragent():
     ]
     return random.choice(_useragent_list)
 
+def is_valid_url(url):
+    """Validate URL format."""
+    parsed = urlparse(url)
+    return bool(parsed.scheme and parsed.netloc)
+
+def clean_content(text):
+    if not text:
+        return None
+    
+    # 1. Remove any content inside square brackets (e.g., [text], [number])
+    text = re.sub(r'\[.*?\]', '', text)
+    # 2. Replace HTML entities (e.g., &nbsp;, &amp;)
+    text = re.sub(r'&[a-z]+;', ' ', text)
+    # text = re.sub(r'[^a-zA-Z0-9\s\p{P}]', ' ', text)
+    # 3. Replace multiple newlines or excessive spaces with a single space
+    text = re.sub(r'\s+', ' ', text)
+    # 4. Strip leading/trailing whitespace
+    text = text.strip()
+    return text
+
+
 def split_in_sentences(text):
-    sentences=[x.strip() for x in text.strip().replace('\n', '').split(". ")]
-    return sentences
+    return [x.strip() for x in text.replace('\n', ' ').split(". ")]
 
 
 def generate_shingles(text, k):
@@ -41,42 +63,52 @@ def similarity_score(input_text, collected_text, k=3):
 
 
 def get_content(url):
-    for i in range(3):
-        download= trafilatura.fetch_url(url)
-        content=trafilatura.extract(download, include_comments=False, include_tables=False)
-        if content:
-            return content
-        
-        elif i==2 and content is None:
-            return ''
+    if not is_valid_url(url):
+        return None
+    try:
+        # Fetch the page content
+        download = trafilatura.fetch_url(url)
+        if download:
+            content = trafilatura.extract(download, include_comments=False, include_tables=False)
+            return clean_content(content) or None  
+
+    except Exception as e:
+        print(f"trafilatura Error: {e}")
+    
+    return None
         
 
 def google_search(query):
-    links=[]
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0'}
-
-    # Perform a Google search
-    response = requests.get(
-                        url="https://www.google.com/search",
-                        headers={"User-Agent": get_useragent()},
-                        params={"q": f'"{query}"',
-                                "num": 5,  # Prevents multiple requests
-                                "hl": 'en'})
-
-    if response.status_code == 200:
+    links = []
+    try:
+        headers = {"User-Agent": get_useragent()}
+        params = {"q": f'"{query}"', "num": 4, "hl": 'en'}
+        
+        # Perform the Google search request
+        response = requests.get("https://www.google.com/search", headers=headers, params=params)
+        response.raise_for_status()  # Raises an error for bad responses
+        
+        # Parse the response content with BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
+        # Extract URLs from the search result blocks (avoiding ads, etc.)
+                
+        try:
+            for result in soup.find_all('h3'):
+                link = result.find_parent('a')
+                if link:
+                    link_text = link.get('href')
+                    links.append(link_text)
+        except:
+            for link_tag in soup.select('div.yuRUbf a'):
+                link = link_tag.get('href')
+                if link:
+                    links.append(link)
 
-        # Extract and print search results
-        search_results = soup.find_all('h3')
-        for idx, result in enumerate(search_results, start=1):
-            link = result.find_parent('a')
-            if link:
-                link_text = link.get('href')
-                if link_text and link_text.startswith('http'):
-                    links.append(link_text)         
-    else:
-        print("Failed to perform the Google search.")
-    return links #list of links
+
+    except requests.RequestException as e:
+        print(f"Error during the search request: {e}")
+    
+    return links
 
 
 def get_results(sentences):
@@ -117,14 +149,14 @@ def get_results(sentences):
 
 
 
-from datetime import datetime
+# from datetime import datetime
 
 def plagiarism_checker(input_text):
     sentences=split_in_sentences(input_text)
 
-    print("Time =", datetime.now().strftime("%H:%M:%S"))
+    # print("Time =", datetime.now().strftime("%H:%M:%S"))
     result=get_results(sentences)
-    print("scores Time =", datetime.now().strftime("%H:%M:%S"))
+    # print("scores Time =", datetime.now().strftime("%H:%M:%S"))
     # print(result)
     return result
 
