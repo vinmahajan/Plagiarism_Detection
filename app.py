@@ -1,25 +1,65 @@
-from flask import Flask, render_template, request
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from src.plagiarism_checker import plagiarism_checker
+from dotenv import load_dotenv
+import os
 
-app = Flask(__name__)
+load_dotenv()
 
-@app.route('/')
-def home():
-    return "<h1>VINM Home page.   go to : /plagiarism-checker </h1>"
+# AUTH_KEYS = json.loads(os.getenv('AUTH_KEYS'))
+AUTH_KEY1 = os.getenv('AUTH_KEY1')
+AUTH_KEY2 = os.getenv('AUTH_KEY2')
+
+app = FastAPI()
+
+templates = Jinja2Templates(directory="templates")
+
+max_text_len = 1000
+
+def validate_api_key(api_key: str):
+    if api_key != AUTH_KEY1 and api_key != AUTH_KEY2:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    else:
+        return True
+
+def validate_input_text(text: str):
+    if len(text)>max_text_len:
+        raise HTTPException(status_code=403, detail="Input Text limit exceeded.")
+    else:
+        return True
+
+class TextInput(BaseModel):
+    text: str
+    api_key: str
 
 
-@app.route('/plagiarism-checker')
-def index():
-    return render_template('index.html')
 
-@app.route('/plagiarism-checker', methods=['POST'])
-def check_plagiarism():
-    text_to_check = request.form['text_to_check']
+@app.post("/api/check-plagiarism")
+async def plagiarism_api(input_data: TextInput):
 
-    result=plagiarism_checker(text_to_check)
+    validate_api_key(input_data.api_key)
+    validate_input_text(input_data.text)
+    result=plagiarism_checker(input_data.text)
+
+    return result
+
+
+
+
+@app.get("/", response_class=HTMLResponse)
+async def get_form(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "result": None})
+
+@app.post("/", response_class=HTMLResponse)
+async def process_form(request: Request, api_key: str = Form(...), text: str = Form(...)):
+    # Check if API key is valid
+    if api_key != AUTH_KEY1 and api_key != AUTH_KEY2:
+        result = "Invalid API Key"
+    else:
+        # Process the text
+        result=plagiarism_checker(text)
     
-    return render_template('index.html', plagiarism_results=result)
+    return templates.TemplateResponse("index.html", {"request": request, "result": result})
 
-
-if __name__ == '__main__':
-    app.run(debug=True)

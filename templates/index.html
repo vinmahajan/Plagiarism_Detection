@@ -1,42 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Plagiarism Checker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plagiarism</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+        .form-container { display: flex; flex-direction: column; gap: 10px; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .result { background-color: #e0ffe0; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Plagiarism Checker</h1>
-        <form method="POST" action="/plagiarism-checker">
-            <textarea name="text_to_check" placeholder="Enter the text to check for plagiarism..." rows="10" cols="40"></textarea>
-            <br>
-            <input type="submit" value="Check Plagiarism">
-        </form>
-
-        <div class="loader" id="loader"></div>
+    <h1>Plagiarism Checker</h1>
+    <form method="post" class="form-container">
+        <label for="api_key">API Key:</label>
+        <input type="text" id="api_key" name="api_key" required>
         
-
-        <div class="result">
-            {% if plagiarism_results %}
-                <h2>Plagiarism Results</h2>
-                <ul>
-                    {% for sentence, data in plagiarism_results.items() %}
-                        <li>
-                            <strong>Sentence:</strong> {{ sentence }}<br>
-                            <strong>Plagiarism Score:</strong> {{ data['score'] }}%<br>
-                            <strong>Source:</strong> {{ data['url'] }}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        </div>
+        <label for="text">Text:</label>
+        <textarea id="text" name="text" rows="6" required></textarea>
+       
+        <button type="submit">Submit</button>
+    </form>
+    {% if result is not none %}
+    <div class="result">
+        <h3>Result:</h3>
+        <p>{{ result}}</p>
     </div>
-
-    <script>
-        document.querySelector('form').addEventListener('submit', function() {
-            document.getElementById('loader').style.display = 'block';
-        });
-    </script>
-    
+    {% endif %}
 </body>
 </html>
