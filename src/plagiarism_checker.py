@@ -1,9 +1,14 @@
 import requests
 from bs4 import BeautifulSoup
-import trafilatura
+import hashlib
+import json
 import random
-from urllib.parse import urlparse
-import re
+import nltk
+from nltk.tokenize import sent_tokenize
+from typing import List, Dict, Any
+
+# Ensure NLTK resources are downloaded for sentence tokenization
+nltk.download("punkt")
 
 def get_useragent():
     _useragent_list = [
@@ -17,75 +22,14 @@ def get_useragent():
     ]
     return random.choice(_useragent_list)
 
-def is_valid_url(url):
-    """Validate URL format."""
-    parsed = urlparse(url)
-    return bool(parsed.scheme and parsed.netloc)
-
-def clean_content(text):
-    if not text:
-        return None
-    
-    # 1. Remove any content inside square brackets (e.g., [text], [number])
-    text = re.sub(r'\[.*?\]', '', text)
-    # 2. Replace HTML entities (e.g., &nbsp;, &amp;)
-    text = re.sub(r'&[a-z]+;', ' ', text)
-    # text = re.sub(r'[^a-zA-Z0-9\s\p{P}]', ' ', text)
-    # 3. Replace multiple newlines or excessive spaces with a single space
-    text = re.sub(r'\s+', ' ', text)
-    # 4. Strip leading/trailing whitespace
-    text = text.strip()
-    return text
-
-
-def split_in_sentences(text):
-    return [x.strip() for x in text.replace('\n', ' ').split(". ")]
-
-
-def generate_shingles(text, k):
-    shingles = set()
-    text = text.lower().split()  # Convert text to lowercase and split into words
-    for i in range(len(text) - k + 1):
-        shingle = ' '.join(text[i:i + k])  # Join k consecutive words to form a shingle
-        shingles.add(shingle)
-    return shingles
-
-
-def similarity(set1, set2):
-    intersection = len(set1.intersection(set2))
-    return  (intersection / len(set1))*100
-def similarity_score(input_text, collected_text, k=3):
-    
-    shingles1 = generate_shingles(input_text, k)
-    shingles2 = generate_shingles(collected_text, k)
-    similarity_score = similarity(shingles1, shingles2)
-    return similarity_score
-
-
-def get_content(url):
-    if not is_valid_url(url):
-        return None
-    try:
-        # Fetch the page content
-        download = trafilatura.fetch_url(url)
-        if download:
-            content = trafilatura.extract(download, include_comments=False, include_tables=False)
-            return clean_content(content) or None  
-
-    except Exception as e:
-        print(f"trafilatura Error: {e}")
-    
-    return None
-        
-
 def google_search(query):
     links = []
     try:
         headers = {"User-Agent": get_useragent()}
-        params = {"q": f'"{query}"', "num": 4, "hl": 'en'}
+        params = {"q": f'"{query}"', "num": 3, "hl": 'en'}
         
         # Perform the Google search request
-        response = requests.get("https://www.google.com/search", headers=headers, params=params)
+        response = requests.get("https://www.google.com/search", headers=headers, params=params, timeout=5)
         response.raise_for_status()  # Raises an error for bad responses
         
         # Parse the response content with BeautifulSoup
@@ -110,80 +54,94 @@ def google_search(query):
     
     return links
 
+def fetch_web_content(url: str) -> str:
+    """Fetch and clean the main content of a webpage."""
+    try:
+        headers = {"User-Agent": get_useragent()}
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        paragraphs = soup.find_all("p")
+        return " ".join([para.get_text() for para in paragraphs])
+    except requests.RequestException as e:
+        print(f"Failed to fetch {url}: {e}")
+        return ""
 
-def get_results(sentences):
+def get_shingles(text: str, k: int = 5) -> set:
+    """Generate k-shingles (sets of k consecutive words) for a given text."""
+    words = text.split()
+    shingles = set()
+    for i in range(len(words) - k + 1):
+        shingle = " ".join(words[i:i + k])
+        shingle_hash = hashlib.md5(shingle.encode("utf-8")).hexdigest()
+        shingles.add(shingle_hash)
+    return shingles
+
+def similarity1(set1, set2):
+    intersection = len(set1.intersection(set2))
+    return  (intersection / len(set1))*100
+
+def calculate_jaccard_similarity(shingles1: set, shingles2: set) -> float:
+    """Calculate Jaccard similarity between two sets of shingles."""
+    intersection = shingles1.intersection(shingles2)
+    union = shingles1.union(shingles2)
+    return len(intersection) / len(union) if union else 0.0
+
+def check_sentence_plagiarism(sentence: str) -> Dict[str, Any]:
+    """Check plagiarism for a single sentence by searching and comparing content."""
+    result = {"sentence": sentence, "matches": []}
+    urls = google_search(sentence)
     
-    sources={}
+    for url in urls:
+        content = fetch_web_content(url)
+        if content:
+            original_shingles = get_shingles(sentence)
+            content_shingles = get_shingles(content)
+            # similarity = calculate_jaccard_similarity(original_shingles, content_shingles)
+            similarity = similarity1(original_shingles, content_shingles)
+            result["matches"].append({"url": url, "score": similarity})
 
-    for sentence in sentences:
+    # Sort matches by score in descending order and take the highest
+    if result["matches"]:
+        result["matches"].sort(key=lambda x: x["score"], reverse=True)
+        highest_match = result["matches"][0]
+        result["highest_match"] = {"url": highest_match["url"], "score": highest_match["score"]}
+    else:
+        result["highest_match"] = {"url": None, "score": 0.0}
 
-        serp_urls=google_search(sentence)
-        # print(sentence)
-        temp={}
-        for url in serp_urls:
-            content=get_content(url)
-            sentence_score = similarity_score(sentence, content)
-            temp[url] = int(sentence_score)
-        # print (temp)
-        max_score_url=max(temp, key=temp.get)
-        max_score=temp[max_score_url]
-
-        current_score={'url':max_score_url, 'score':max_score}
-            
-        if sources:
-            last_sentence=list(sources.keys())[-1]
-            last_url=sources[last_sentence]['url']
-            last_url_score=sources[last_sentence]['score']
-            if last_url==max_score_url:
-                combined_sentence = last_sentence + ". " + sentence
-                sources[combined_sentence] = {'url':max_score_url, 'score':int((max_score+last_url_score)/2)} #(current_score['score']+last_url_score)/2
-                
-                del sources[last_sentence]
-
-            else:
-                sources[sentence] = current_score
-        else:
-            sources[sentence] = current_score
-    
-    return sources
-
-
-
-# from datetime import datetime
-
-def plagiarism_checker(input_text):
-    sentences=split_in_sentences(input_text)
-
-    # print("Time =", datetime.now().strftime("%H:%M:%S"))
-    result=get_results(sentences)
-    # print("scores Time =", datetime.now().strftime("%H:%M:%S"))
-    # print(result)
     return result
 
+def plagiarism_checker(text: str) -> List[Dict[str, Any]]:
+    """Run plagiarism check on each sentence in the input text."""
+    sentences = sent_tokenize(text)
+    results = [check_sentence_plagiarism(sentence) for sentence in sentences]
+    return get_score(results)
 
-def get_raw_result(input_text):
-    
-    text=""
-    try:
-        result =plagiarism_checker(str(input_text))
-        all_scores=[]
-        for key, value in result.items():
-            text+=f'\n{"-"}\nSentence: {key} \nSource: {value["url"]} \nText Maches: {value["score"]}%'
-            all_scores.append(value['score'])
-        if all_scores:
-            total_score=sum(all_scores)/len(all_scores)
-        #if total_score:
-            text+=(f'\n\nUnique: {int(100-total_score)}%   &   Plagiarism: {int(total_score)}%')
-    except Exception as e:
-        text=f'Error:{e}'
+def get_score(data):
+    # Merging sentences by URL and score
+    result = []
+    for entry in data:
+        url = entry['highest_match']['url']
+        score = entry['highest_match']['score']
+        sentence = entry['sentence']
+        
+        # Check if we should merge with the last entry
+        if result and result[-1]['url'] == url and result[-1]['score'] == score:
+            result[-1]['sentence'] += " " + sentence  # Append the sentence
+        else:
+            # Add a new entry
+            result.append({
+                'sentence': sentence,
+                'url': url,
+                'score': score
+            })
 
-    return text
-
-
+    return result
+# Example usage
 if __name__ == "__main__":
-    
-    input_text=input("Enter The Text: ")
-    print("Working...")
-    final_output=get_raw_result(input_text)
-    print(final_output)
-
+    input_text = """NoSQL databases (AKA "not only SQL") store data differently than relational tables. NoSQL databases come in a variety of types based on their data model. The main types are 
+document, key-value, wide-column, and graph. They provide flexible schemas and scale easily with large amounts of big data and high user loads.
+In this article, you'll learn what a NoSQL database is, why (and when!) you should use one, and how to get started.
+"""
+    results = plagiarism_checker(input_text)
+    print(json.dumps(results, indent=2))

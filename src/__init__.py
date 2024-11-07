@@ -1,1 +1,0 @@
-from .plagiarism_checker import plagiarism_checker
