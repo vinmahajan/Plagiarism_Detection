@@ -8,8 +8,8 @@ from nltk.tokenize import sent_tokenize
 from typing import List, Dict, Any
 
 # Ensure NLTK resources are downloaded for sentence tokenization
-nltk.download("punkt")
-
+# nltk.download("punkt")
+nltk.download('punkt_tab')
 def get_useragent():
     _useragent_list = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0',
