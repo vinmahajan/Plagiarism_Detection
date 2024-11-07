@@ -3,12 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plagiarism</title>
+    <title>Plagiarism Checker</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
-        .form-container { display: flex; flex-direction: column; gap: 10px; }
-        .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
-        .result { background-color: #e0ffe0; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .result-container {
+            margin-top: 20px;
+        }
+        .result-item {
+            background-color: #e0ffe0;
+            border: 1px solid #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .result-item h4 {
+            margin: 0 0 5px;
+            font-size: 1.1em;
+        }
+        .result-item p {
+            margin: 5px 0;
+        }
+        .result-item a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .result-item a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -22,10 +53,20 @@
        
         <button type="submit">Submit</button>
     </form>
+
     {% if result is not none %}
-    <div class="result">
-        <h3>Result:</h3>
-        <p>{{ result}}</p>
+    <div class="result-container">
+        <h2>Results:</h2>
+        {% for item in result %}
+            <div class="result-item">
+                <h4>Text:</h4>
+                <p>{{ item.sentence }}</p>
+                <h4>URL:</h4>
+                <p><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></p>
+                <h4>Plagiarism Score:</h4>
+                <p>{{ item.score }}%</p>
+            </div>
+        {% endfor %}
     </div>
     {% endif %}
 </body>
