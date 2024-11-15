@@ -1,0 +1,24 @@
+
+1. Create a Virtual Environment:
+>> python -m venv venv
+
+2. Activate the Environment
+>> venv/scripts/activate
+
+3. Install all the requirements
+>> pip install -r requirements.txt
+
+4. start the local server
+>> uvicorn app:app --host 127.0.0.1 --port 8080
+
+-- cloud server
+>> uvicorn app:app --host 0.0.0.0 --port $PORT
+
+5. Test text API in CMD:
+>> curl -X POST http://127.0.0.1:8080//api/check-plagiarism -H "Content-Type: application/json" -H "auth-key: apikey1" -d "{\"text\": \"The term NoSQL, short for “not only SQL,” refers to non-relational databases that store data in a non-tabular format, rather than in rule-based, relational tables like relational databases do.\",\"api_key\": \"apikey01\"}"
+
+To close the server
+Press: ctr+c
+
+To close the Environment
+>> deactivate
